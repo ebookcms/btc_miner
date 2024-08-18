@@ -10,7 +10,7 @@ This file requires an RPC connection to Bitcoin Core. You can edit data.cfg, and
 
 Before installing, please install **[Bitcoin Core]** first : https://bitcoincore.org/en/download/
 
-  - Python : Install from this site **[site]**
+  - Python : Install from this site **https://www.python.org/**
   - **Some Libraries need to installed in admin user:**
     - pip install requests
     - pip install python-bitcoinrpc
@@ -36,6 +36,3 @@ All the donations will be use only for three things:
 To contue working in bug/fixes why not pay me a beer
 - BTC: 1BeerePfmg16xwXihFvfijAuiUB2mv4UiE
 - LIGHTNING: meltedbelgian77@walletofsatoshi.com (satoshi wallet)
-
-[//]:
-[site]: https://www.python.org/
