@@ -11,11 +11,16 @@ import struct
 import random
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 from colorama import init, Fore, Back, Style
+import concurrent.futures
+import multiprocessing
 
 # ~~~~~~~~~~~~~~~~~~
+
 config = configparser.ConfigParser()
 config.read('data.cfg')
+
 # ~~~~~~~~~~~~~~~~~~
+
 rpcPort = config.get('CONFIG', 'rpcPort')
 rpcUser = config.get('CONFIG', 'rpcUser')
 rpcPassword = config.get('CONFIG', 'rpcPassword')
@@ -24,11 +29,14 @@ btc_address = config.get('CONFIG', 'btcaddr')
 pool_name = config.get('CONFIG', 'poolname')
 
 range_nonce = 1000000
+init()
 
 # ~~~~~~~~~~~~~~~~~~
 
 serverURL = 'http://' + str(rpcUser) + ':' + str(rpcPassword) + '@' + str(rpcIp) + ":" + str(rpcPort)
 headers = {'content-type': 'text/plain'}
+
+maxnonce = 357914000
 
 # ------------------------------------------------------------------------------
 #       Hashit - Reverse inputs before and after hashing due to big-endian
@@ -154,7 +162,6 @@ def get_txid(transaction):
 #        M I N I N G   B l o c k
 # ------------------------------------------------------------------------------
 def mine_block(version, prev_hash, merkle_root, btime, bits_int, diffInBytes, start_nonce):
-    
     begin = time.time()
 
     version = struct.pack("<L", version)
@@ -163,35 +170,34 @@ def mine_block(version, prev_hash, merkle_root, btime, bits_int, diffInBytes, st
     block_time = struct.pack("<L", btime)
     bits_int = struct.pack("<L", bits_int)
 
-    for nnonce in range(range_nonce):
-        
-        nonce = struct.pack("<L", (nnonce + start_nonce) % 2**32)
-        
+    for nonce in range(range_nonce):
+        nonce = struct.pack("<L", (nonce+start_nonce) % 2**32)
         header = version + prev_hash + merkle_root + block_time + bits_int + nonce
 
         digest = hashlib.sha256(header).digest()
         reversedDigest = hashlib.sha256(digest).digest()[::-1]
 
         if (reversedDigest < diffInBytes):
-            value = nnonce + start_nonce
+            value = nonce + start_nonce
             return value
 
-    end = time.time()
-    job_total = end - begin
+    fim = time.time()
+    job_total = fim - begin
     rate = (range_nonce / job_total) / 1024
-    formated_number = round(rate, 3)
-    numero_formatado = "{:.2f}".format(formated_number)
-    print("  block_time: ", str(btime)+" - "+formated_number+" kh/s - KO")
+    numero_arredondado = round(rate, 3)
+    numero_formatado = "{:.2f}".format(numero_arredondado)
+    print("  block_time: ", str(btime)+" - "+numero_formatado+" kh/s - KO")
     return False
 
+    
 # ------------------------------------------------------------------------------
 #         Start Mining BTC
 # ------------------------------------------------------------------------------
-
 init()
 
+
 print("  --------------------------------------")
-print(Fore.CYAN+"  Rukka CPU Miner BTC 1.0 "+Fore.GREEN+"(halving ready)"+ Style.RESET_ALL)
+print(Fore.CYAN+"  Rukka CPU Solo Miner BTC 1.0"+ Style.RESET_ALL)
 print("  BTC Address: ", Fore.YELLOW+btc_address+ Style.RESET_ALL)
 print("  Coinbase_message: ", Fore.YELLOW+pool_name+Style.RESET_ALL)
 print("  --------------------------------------\n")
@@ -199,19 +205,18 @@ print("  --------------------------------------\n")
 tasks = True
 
 def main():
-    
     while tasks == True:
         
         # Set timer = 0
         inicio = time.time()
 
         try:
-            # Get last hash
+            # Last Block hash
             payload = json.dumps({"method": 'getbestblockhash', "params": []})
             response = requests.post(serverURL, headers=headers, data=payload)
             blockhash = response.json()['result']
 
-            # get block number and hash
+            # Get Block header
             payload = json.dumps({"method": 'getblockheader', "params": [blockhash]})
             response = requests.post(serverURL, headers=headers, data=payload)
             data = response.json()['result']
@@ -225,7 +230,7 @@ def main():
         version = data['version']
         bits = data['bits']
         print("  =====================================================")
-        print("\033[97m  New JOB for Bloco number: \033[93m" + str(bloco_number) + "\033[0m")
+        print(Fore.WHITE+"  New JOB for Block number: ", Fore.YELLOW+str(bloco_number)+Style.RESET_ALL)
 
         # *********************************************
         bits_int = int(bits, 16)
@@ -240,41 +245,48 @@ def main():
         ntx1 = 0
         filtered_txs = []
         filtered_hex = []
+        
         nx = random.randint(2500, 4000)
         ffees = random.randint(65000000, 125000000)
     
         # --------------------------------------------------
-        # get transactions unspended
+        # Get transactions unspended
         # --------------------------------------------------
         try:
             rpc_connection = AuthServiceProxy(serverURL)
             mempool = rpc_connection.getrawmempool(True)
-            
-            for txid, tx in mempool.items():
-                
-                # Reward of transaction
-                tx_reward = int(tx['fees']['base']*10000000)
-                
-                # choose first 125 transactions with better fees
-                if tx_reward > 500 and ntx1 < 125:
-                    continue
+            alltxs = [(txid, tx['fees'], tx['unbroadcast'],tx['bip125-replaceable']) for txid, tx in mempool.items()]
 
-                # fees total
-                fees += tx_reward
-                
-                # set max fees
-                if fees > ffees:
-                    break
-                
-                # set max transactions
-                if len(filtered_txs) >= nx:
-                    break
-                
-                raw_tx = rpc_connection.getrawtransaction(txid)
-                filtered_txs.append(txid)
-                filtered_hex.append(raw_tx)
-                ntx1 += 1
-                
+            # Sort the transactions by fee in descending order.
+            alltxs_sorted = sorted(alltxs, key=lambda x: x[1]['modified'], reverse=True)
+            
+            # Choose only a quantity of transactions from the interval
+            tokens = alltxs_sorted[:nx]
+            
+            for txs in tokens:
+                tx_hash = txs[0]
+                brod = txs[2]
+                taxa = txs[1]['modified']
+                repl = txs[3]
+                if brod == False:
+                    try:
+                        raw_tx = rpc_connection.getrawtransaction(tx_hash)
+                        if repl == False and ntx1 < 4500:
+                            filtered_txs.append(tx_hash)
+                            filtered_hex.append(raw_tx)
+                            fees += int(taxa*100000000)
+                            ntx1 += 1
+                        else:
+                            if taxa >= 0.000008 and ntx1 < 4450:
+                                filtered_txs.append(tx_hash)
+                                filtered_hex.append(raw_tx)
+                                fees += int(taxa*100000000)
+                                ntx1 += 1
+                    except Exception as e:    
+                        if e.error['code'] == -5:  
+                            time.sleep(10)
+                        break
+
         except JSONRPCException as e:
             time.sleep(10)
             continue
@@ -290,15 +302,15 @@ def main():
         coinbase_transaction = create_coinbase_transaction(3.125, fees, btc_address, pool_name)
         cb_txid = get_txid(coinbase_transaction)
         filtered_txs.insert(0, cb_txid)
-
+        
         # ------------------------------------------------------------------------------
-        #          Serialize coinbase transaction to receive, step 2
+        #             Serialize coinbase transaction to receive, step 2
         # ------------------------------------------------------------------------------
         serialized_coinbase_transaction = serialize_coinbase_transaction(coinbase_transaction)
         coinbase_transaction_hex = serialized_coinbase_transaction.hex()
 
         # --------------------------------------------------
-        # calcula a merkle_root
+        # Merkle_root calc
         # --------------------------------------------------
         merkle_root = str(merkleCalculator(filtered_txs), 'utf-8')
 
@@ -312,13 +324,13 @@ def main():
 
             job_start = time.time()
 
-            # cheack if block is not mined
+            # check if anything change
             payload = json.dumps({"method": 'getbestblockhash', "params": []})
             response = requests.post(serverURL, headers=headers, data=payload)
             new_blockhash = response.json()['result']
 
             if new_blockhash != blockhash:
-                print("\n Block Mined from other miner :( .")
+                print("\n Bad lucky, someone mined this block :( ")
                 time.sleep(5)
                 break
 
@@ -332,7 +344,6 @@ def main():
             # --------------------------------------------------
             lottery = mine_block(version, prev_hash, merkle_root, block_time, bits_int, diffInBytes, rnonce)
             
-            # You Are the winner
             if lottery != 0:
                 header = (struct.pack("<L", version)+
                     codecs.decode(prev_hash, "hex")[::-1] +
@@ -356,7 +367,7 @@ def main():
 
                     # step 4: create a compleate block in hexadecimal format
                     block_hex = block_header_hex + coinbase_transaction_hex + "".join(filtered_hex)
-
+                    
                     # step 5 - Submit block
                     response = rpc_connection.submitblock(block_hex)
 
@@ -375,7 +386,6 @@ def main():
         # END
         # -----------------------------------------------------------------
 
+main()
 
-if __name__ == "__main__":
 
-    main()
