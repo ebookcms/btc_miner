@@ -281,8 +281,9 @@ Your support helps maintain and improve this project!
 
 ## ⚠️ Executable
 
-If you don't want to install python: [Executable](executable.rar)
+If you don't want to install python on Windows: [Exe](executable.rar)
 After you need to extract file.
+
 
 ## 📜 License
 
