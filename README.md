@@ -45,7 +45,7 @@
 ```bash
 # Clone repository
 git clone https://github.com/ebookcms/btc_minerV2.git
-cd btc_minerV2
+cd btc_miner
 
 # Install Python dependencies
 pip install requests python-bitcoinrpc colorama psutil
