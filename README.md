@@ -1,4 +1,4 @@
-# ⛏️ Rukka BTC Miner CPU v1.0
+# ⛏️ Rukka BTC Miner CPU v2.0
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/ebookcms/btc_miner)
 [![Python](https://img.shields.io/badge/python-3.8%2B-green.svg)](https://www.python.org/)
