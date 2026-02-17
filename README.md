@@ -1,4 +1,4 @@
-# ⛏️ Rukka BTC Miner CPU v2.0
+# ⛏️ Rukka BTC Miner CPU v1.0
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/ebookcms/btc_miner)
 [![Python](https://img.shields.io/badge/python-3.8%2B-green.svg)](https://www.python.org/)
@@ -45,7 +45,7 @@
 ```bash
 # Clone repository
 git clone https://github.com/ebookcms/btc_minerV2.git
-cd btc_miner
+cd btc_minerV2
 
 # Install Python dependencies
 pip install requests python-bitcoinrpc colorama psutil
@@ -279,6 +279,10 @@ Your support helps maintain and improve this project!
 - Always test with --test-mode before starting production mining
 - The authors are not responsible for lost funds or system damage
 
+## ⚠️ Executable
+
+If you don't want to install python: [Executable](executable.rar)
+After you need to extract file.
 
 ## 📜 License
 
